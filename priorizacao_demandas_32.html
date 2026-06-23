@@ -1,0 +1,1381 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Board de Demandas</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: #0a0a0a; }
+  ::-webkit-scrollbar-thumb { background: #2a2a2a; border-radius: 10px; }
+  ::-webkit-scrollbar-thumb:hover { background: #7c3aed; }
+  * { scrollbar-width: thin; scrollbar-color: #2a2a2a #0a0a0a; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: #0a0a0a;
+    color: #f0f0f0;
+    min-height: 100vh;
+    padding: 0;
+    margin: 0;
+  }
+  .page-wrap {
+    max-width: 100%;
+    padding: 28px 24px;
+  }
+
+  header {
+    max-width: 100%;
+    margin: 0 0 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+    border-bottom: 1px solid #1e1e1e;
+    padding-bottom: 20px;
+  }
+
+  .header-left h1 { font-size: 22px; font-weight: 700; color: #fff; letter-spacing: -0.4px; }
+  .header-left p { font-size: 13px; color: #555; margin-top: 4px; }
+  .header-right { display: flex; gap: 8px; flex-wrap: wrap; }
+
+  .btn { font-size: 13px; font-weight: 500; padding: 8px 16px; border-radius: 8px; border: none; cursor: pointer; transition: all .15s; }
+  .btn-primary { background: #7c3aed; color: #fff; }
+  .btn-primary:not([disabled]):hover { background: #6d28d9; }
+  .btn-primary[disabled] { pointer-events: none; }
+  .btn-primary:hover { background: #6d28d9; }
+  .btn-outline { background: transparent; border: 1.5px solid #2a2a2a; color: #aaa; }
+  .btn-outline:hover { border-color: #7c3aed; color: #fff; }
+
+  /* KANBAN */
+  .board-wrap { padding-bottom: 16px; }
+  .board { display: grid; grid-template-columns: repeat(5, 1fr); gap: 14px; align-items: flex-start; }
+
+  .lane {
+    width: 100%;
+    min-width: 0;
+    border-radius: 14px;
+    background: #111;
+    border: 1px solid #1e1e1e;
+    display: flex;
+    flex-direction: column;
+    max-height: calc(100vh - 220px);
+    overflow: visible;
+  }
+
+  /* Tablet */
+  @media (max-width: 1100px) {
+    .board { grid-template-columns: repeat(3, 1fr); }
+    .lane { max-height: none; }
+    body { padding: 20px 16px; }
+  }
+
+  /* Mobile */
+  @media (max-width: 640px) {
+    .board { grid-template-columns: 1fr; }
+    body { padding: 16px 12px; }
+    header { flex-direction: column; align-items: flex-start; gap: 12px; }
+    .header-right { width: 100%; }
+    .header-right .btn { flex: 1; text-align: center; }
+  }
+
+  .lane-header {
+    padding: 14px 16px 12px;
+    border-bottom: 1px solid #1e1e1e;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    position: sticky;
+    top: 0;
+    background: #111;
+    border-radius: 14px 14px 0 0;
+    z-index: 10;
+    overflow: visible;
+  }
+
+  .lane-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+  .dot-backlog { background: #444; }
+  .dot-analise { background: #f59e0b; }
+  .dot-dev { background: #7c3aed; }
+  .dot-bloqueado { background: #ef4444; }
+  .dot-concluido { background: #22c55e; }
+
+  .lane-title { font-size: 13px; font-weight: 700; color: #fff; }
+  .lane-count {
+    margin-left: auto;
+    font-size: 11px; font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 20px;
+    background: #1e1e1e;
+    color: #666;
+  }
+
+  .lane-body {
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    overflow-y: auto;
+    flex: 1;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .lane-body::-webkit-scrollbar { display: none; }
+
+  /* CARDS */
+  .card {
+    background: #1a1a1a;
+    border-radius: 10px;
+    border: 1px solid #2a2a2a;
+    padding: 14px;
+    transition: all .15s;
+    cursor: pointer;
+  }
+  .card:hover { border-color: #7c3aed; box-shadow: 0 0 0 1px rgba(124,58,237,0.2); }
+
+  .card-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+  .card-num { font-size: 11px; color: #444; font-weight: 600; white-space: nowrap; }
+  .card-title { font-size: 13px; font-weight: 600; color: #e8e8e8; line-height: 1.4; flex: 1; }
+
+  .card-desc {
+    font-size: 12px;
+    color: #777;
+    line-height: 1.5;
+    margin-bottom: 10px;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .card-footer { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .chip { font-size: 11px; padding: 3px 8px; border-radius: 5px; font-weight: 500; }
+  .chip-sol { background: #1e1e1e; color: #777; }
+  .chip-ticket { background: #1a1a2e; color: #818cf8; font-family: monospace; }
+  .chip-prio1 { background: rgba(239,68,68,0.2); color: #f87171; }
+  .chip-prio2 { background: rgba(251,146,60,0.2); color: #fb923c; }
+  .chip-prio3 { background: rgba(250,204,21,0.15); color: #facc15; }
+
+  .card.dragging { opacity: .4; transform: scale(0.97); border-color: #7c3aed; }
+  .lane-body.drag-over { background: rgba(124,58,237,0.06); border-radius: 8px; outline: 1.5px dashed rgba(124,58,237,0.4); }
+  .drag-handle { font-size: 16px; color: #333; cursor: grab; margin-left: auto; padding-left: 6px; transition: color .15s; }
+  .card:hover .drag-handle { color: #666; }
+  .drag-handle:active { cursor: grabbing; }
+  .add-card-btn {
+    width: 100%;
+    padding: 8px;
+    border-radius: 8px;
+    border: 1.5px dashed #222;
+    background: transparent;
+    color: #333;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all .15s;
+    margin-top: 4px;
+  }
+  .add-card-btn:hover { border-color: #7c3aed; color: #a78bfa; background: rgba(124,58,237,0.05); }
+
+  /* FRENTES */
+  .frente-chip-produtos-internos { background: rgba(253,224,71,0.15); color: #fde047; }
+  .frente-chip-pagamentos { background: rgba(52,211,153,0.15); color: #34d399; }
+  .frente-chip-aplicativo { background: rgba(99,102,241,0.15); color: #818cf8; }
+  .frente-chip-produtos-finais { background: rgba(251,146,60,0.15); color: #fb923c; }
+
+  .fsol-opt { padding: 8px 14px; font-size: 12px; color: #aaa; cursor: pointer; transition: background .1s; }
+  .fsol-opt:hover { background: rgba(124,58,237,0.15); color: #fff; }
+  .fsol-opt:first-child { color: #666; border-bottom: 1px solid #2a2a2a; }
+  .sol-opt { padding: 9px 14px; font-size: 13px; color: #ccc; cursor: pointer; transition: background .1s; }
+  .sol-opt:hover { background: rgba(124,58,237,0.15); color: #fff; }
+  .sol-opt-outro { color: #7c3aed; border-top: 1px solid #2a2a2a; margin-top: 4px; }
+
+  /* DROPDOWNS CUSTOMIZADOS */
+  .custom-select-wrap { position: relative; }
+  .custom-select-trigger {
+    width: 100%; padding: 10px 36px 10px 14px;
+    border-radius: 8px; border: 1.5px solid #2a2a2a;
+    background: #0e0e0e; color: #555;
+    font-size: 13.5px; font-family: inherit;
+    cursor: pointer; display: flex; align-items: center;
+    justify-content: space-between; transition: border-color .15s;
+    user-select: none; position: relative;
+  }
+  .custom-select-trigger:hover { border-color: #444; }
+  .custom-select-trigger.open { border-color: #7c3aed; }
+  .custom-select-trigger.has-val { color: #e0e0e0; }
+  .custom-select-trigger .arrow {
+    position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
+    width: 14px; height: 14px; pointer-events: none; color: #555;
+    transition: transform .2s;
+  }
+  .custom-select-trigger.open .arrow { transform: translateY(-50%) rotate(180deg); }
+  .custom-select-dropdown {
+    display: none;
+    position: absolute; top: calc(100% + 4px); left: 0; right: 0;
+    background: #141414; border: 1.5px solid #2a2a2a;
+    border-radius: 10px; z-index: 9999; overflow: hidden;
+    box-shadow: 0 8px 24px rgba(0,0,0,.6);
+  }
+  .custom-select-dropdown.open { display: block; }
+  .custom-select-search {
+    width: 100%; padding: 10px 14px;
+    border: none; border-bottom: 1px solid #1e1e1e;
+    background: #0e0e0e; color: #ccc;
+    font-size: 13px; font-family: inherit; outline: none;
+  }
+  .custom-select-search::placeholder { color: #444; }
+  .custom-select-opts { max-height: 220px; overflow-y: auto; scrollbar-width: none; }
+  .custom-select-opts::-webkit-scrollbar { display: none; }
+  .cso { padding: 10px 14px; font-size: 13px; color: #aaa; cursor: pointer; transition: background .1s; }
+  .cso:hover { background: rgba(124,58,237,0.15); color: #fff; }
+  .cso.selected { background: rgba(124,58,237,0.2); color: #c4b5fd; }
+  .cso.outro { color: #7c3aed; border-top: 1px solid #1e1e1e; }
+
+  /* TOOLTIPS */
+  .tooltip-wrap { position: relative; display: inline-flex; align-items: center; gap: 6px; }
+  .tooltip-icon {
+    width: 16px; height: 16px; border-radius: 50%;
+    background: #2a2a2a; color: #666;
+    font-size: 10px; font-weight: 700;
+    display: inline-flex; align-items: center; justify-content: center;
+    cursor: help; flex-shrink: 0; transition: all .15s;
+  }
+  .tooltip-icon:hover { background: #7c3aed; color: #fff; }
+  .tooltip-box {
+    display: none;
+    position: fixed;
+    min-width: 220px;
+    max-width: 280px;
+    background: #1e1e1e;
+    border: 1px solid #2a2a2a;
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-size: 12px;
+    color: #aaa;
+    line-height: 1.5;
+    box-shadow: 0 4px 16px rgba(0,0,0,.5);
+    pointer-events: none;
+  }
+  .tooltip-box.visible { display: block; }
+
+  /* MODAL BLOQUEIO */
+  .block-modal-overlay {
+    display: none;
+    position: fixed !important;
+    top: 0 !important; left: 0 !important;
+    right: 0 !important; bottom: 0 !important;
+    width: 100vw !important; height: 100vh !important;
+    background: rgba(0,0,0,.85);
+    z-index: 99999 !important;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+  .block-modal-overlay.open { display: flex; }
+  .block-modal {
+    background: #141414;
+    border-radius: 16px;
+    border: 1.5px solid #ef4444;
+    width: 100%;
+    max-width: 460px;
+    padding: 28px;
+  }
+  .block-modal h3 { font-size: 16px; font-weight: 700; color: #f87171; margin-bottom: 6px; }
+  .block-modal p { font-size: 13px; color: #666; margin-bottom: 16px; }
+  .block-modal textarea {
+    width: 100%; padding: 10px 14px;
+    border-radius: 8px; border: 1.5px solid #2a2a2a;
+    background: #0e0e0e; color: #e0e0e0;
+    font-size: 13px; font-family: inherit;
+    resize: vertical; min-height: 80px; line-height: 1.5;
+    transition: border-color .15s;
+  }
+  .block-modal textarea:focus { outline: none; border-color: #ef4444; }
+  .block-modal-footer { display: flex; gap: 10px; justify-content: flex-end; margin-top: 12px; }
+
+  /* MODAL */
+
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0,0,0,0.85);
+    z-index: 99999;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    box-sizing: border-box;
+  }
+  .modal-overlay.show { display: flex !important; }
+
+  .modal {
+    background: #141414;
+    border-radius: 16px;
+    border: 1px solid #2a2a2a;
+    width: 100%;
+    max-width: 560px;
+    max-height: 90vh;
+    overflow-y: auto;
+    padding: 28px;
+    scrollbar-width: none;
+    position: relative;
+    z-index: 1001;
+  }
+  .modal::-webkit-scrollbar { display: none; }
+
+  .modal h2 { font-size: 17px; font-weight: 700; color: #fff; margin-bottom: 20px; }
+
+  .field { margin-bottom: 16px; }
+  .field label { display: block; font-size: 12px; font-weight: 600; color: #666; margin-bottom: 6px; text-transform: uppercase; letter-spacing: .5px; }
+
+  .field input, .field textarea {
+    width: 100%;
+    padding: 10px 14px;
+    border-radius: 8px;
+    border: 1.5px solid #2a2a2a;
+    background: #0e0e0e;
+    color: #e0e0e0;
+    font-size: 13.5px;
+    font-family: inherit;
+    transition: border-color .15s;
+  }
+  .field input::placeholder, .field textarea::placeholder { color: #555; }
+  .field select {
+    width: 100%;
+    padding: 10px 32px 10px 14px;
+    border-radius: 8px;
+    border: 1.5px solid #2a2a2a;
+    background: #0e0e0e;
+    color: #555;
+    font-size: 13.5px;
+    font-family: inherit;
+    transition: border-color .15s;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23555' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+  }
+  .field select.has-value { color: #e0e0e0; }
+  .field select option { color: #e0e0e0; }
+  .field select option:first-child { color: #555; }
+  .field input:focus, .field textarea:focus, .field select:focus { outline: none; border-color: #7c3aed; }
+  .field textarea { resize: vertical; min-height: 80px; line-height: 1.5; }
+
+  .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+  .modal-footer { display: flex; gap: 10px; justify-content: flex-end; margin-top: 8px; }
+  .btn-danger { background: rgba(239,68,68,0.15); color: #f87171; border: 1px solid rgba(239,68,68,0.2); }
+  .btn-danger:hover { background: rgba(239,68,68,0.25); }
+
+  /* STATUS SELECTOR */
+  .status-options { display: flex; gap: 8px; flex-wrap: wrap; }
+  .status-opt {
+    font-size: 12px; font-weight: 600;
+    padding: 6px 14px;
+    border-radius: 20px;
+    border: 1.5px solid #2a2a2a;
+    background: transparent;
+    color: #555;
+    cursor: pointer;
+    transition: all .15s;
+  }
+  .status-opt:hover { border-color: #444; color: #aaa; }
+  .status-opt.sel-backlog { background: #222; border-color: #444; color: #aaa; }
+  .status-opt.sel-analise { background: rgba(245,158,11,0.15); border-color: #f59e0b; color: #fbbf24; }
+  .status-opt.sel-dev { background: rgba(124,58,237,0.2); border-color: #7c3aed; color: #c4b5fd; }
+  .status-opt.sel-bloqueado { background: rgba(239,68,68,0.15); border-color: #ef4444; color: #f87171; }
+  .status-opt.sel-concluido { background: rgba(34,197,94,0.15); border-color: #22c55e; color: #4ade80; }
+
+  /* PRIO SELECTOR */
+  .prio-options { display: flex; gap: 8px; }
+  .prio-opt {
+    flex: 1; text-align: center;
+    font-size: 12px; font-weight: 700;
+    padding: 8px;
+    border-radius: 8px;
+    border: 1.5px solid #2a2a2a;
+    background: transparent;
+    color: #444;
+    cursor: pointer;
+    transition: all .15s;
+  }
+  .prio-opt:hover { border-color: #555; color: #aaa; }
+  .prio-opt.sel-p1 { background: rgba(239,68,68,0.2); border-color: #ef4444; color: #f87171; }
+  .prio-opt.sel-p2 { background: rgba(251,146,60,0.2); border-color: #fb923c; color: #fb923c; }
+  .prio-opt.sel-p3 { background: rgba(250,204,21,0.15); border-color: #facc15; color: #facc15; }
+
+  /* SUMMARY */
+  .summary-bar {
+    max-width: 100%;
+    margin: 20px 0 0;
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 10px;
+  }
+  .summary-card { background: #111; border-radius: 10px; padding: 14px 18px; border: 1px solid #1e1e1e; }
+  .summary-card .num { font-size: 26px; font-weight: 800; color: #fff; line-height: 1; }
+  .summary-card .lbl { font-size: 11px; color: #444; margin-top: 4px; }
+
+  @media (max-width: 1100px) {
+    .summary-bar { grid-template-columns: repeat(3, 1fr); }
+  }
+  @media (max-width: 640px) {
+    .summary-bar { grid-template-columns: repeat(2, 1fr); }
+  }
+  .num-purple { color: #a78bfa !important; }
+  .num-green { color: #4ade80 !important; }
+  .num-red { color: #f87171 !important; }
+  .num-amber { color: #fbbf24 !important; }
+</style>
+</head>
+<body>
+
+<div class="page-wrap">
+<header>
+  <div class="header-left">
+    <img src="data:image/png;base64,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" alt="SevenX" style="height:36px;display:block" />
+    <p style="font-size:13px;color:#555;margin-top:6px">Board de Demandas &nbsp;·&nbsp; Priorização de demandas</p>
+  </div>
+  <div class="header-right">
+    <button class="btn btn-outline" onclick="exportCSV()">⬇ Exportar CSV</button>
+    <button class="btn btn-primary" onclick="openModal(null, null)">+ Nova demanda</button>
+  </div>
+</header>
+
+<div class="summary-bar" id="summary-bar" style="margin-bottom:20px"></div>
+
+<div style="margin:0 0 16px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;width:fit-content">
+  <span style="font-size:12px;color:#555;font-weight:600;white-space:nowrap">Filtrar:</span>
+  <select id="filter-sol" onchange="applyFilters()" style="font-size:12px;padding:6px 10px;border-radius:8px;border:1.5px solid #2a2a2a;background:#111;color:#aaa;cursor:pointer;width:200px">
+    <option value="">Todos os solicitantes</option>
+    <option value="Alaf Martins">Alaf Martins</option>
+    <option value="Alana Cruz Moreira">Alana Cruz Moreira</option>
+    <option value="Alessandra Casariego">Alessandra Casariego</option>
+    <option value="Alexandra de Souza Reis">Alexandra de Souza Reis</option>
+    <option value="Alexia Benevides">Alexia Benevides</option>
+    <option value="Allan Pixtopay">Allan Pixtopay</option>
+    <option value="Amanda Souza">Amanda Souza</option>
+    <option value="Andre Conjo">Andre Conjo</option>
+    <option value="Andrea Marques">Andrea Marques</option>
+    <option value="Andresa Rezende Barbosa">Andresa Rezende Barbosa</option>
+    <option value="Andressa Bacelar">Andressa Bacelar</option>
+    <option value="Ari Cunha">Ari Cunha</option>
+    <option value="Barbara Dias">Barbara Dias</option>
+    <option value="Barbara Madureira">Barbara Madureira</option>
+    <option value="Brenner Cunha">Brenner Cunha</option>
+    <option value="Bruno Furtado">Bruno Furtado</option>
+    <option value="Bárbara Alves">Bárbara Alves</option>
+    <option value="Camilla Rizzo">Camilla Rizzo</option>
+    <option value="Camilo Melgaço">Camilo Melgaço</option>
+    <option value="Carine Flavia Almeida">Carine Flavia Almeida</option>
+    <option value="Cristyan Domingos">Cristyan Domingos</option>
+    <option value="Daniel Pixtopay">Daniel Pixtopay</option>
+    <option value="Danilo Pixtopay">Danilo Pixtopay</option>
+    <option value="Diego Martins">Diego Martins</option>
+    <option value="Diego Silva">Diego Silva</option>
+    <option value="Eduardo Medeiros de Souza Santos">Eduardo Medeiros de Souza Santos</option>
+    <option value="Ellen Silva">Ellen Silva</option>
+    <option value="Enzo Soares">Enzo Soares</option>
+    <option value="Felipe Costa">Felipe Costa</option>
+    <option value="Felipe Silva">Felipe Silva</option>
+    <option value="Fernanda Araujo">Fernanda Araujo</option>
+    <option value="Franklin Sampaio">Franklin Sampaio</option>
+    <option value="Gabriell Furtado">Gabriell Furtado</option>
+    <option value="Gabrielle Carvalho">Gabrielle Carvalho</option>
+    <option value="Gisele de Souza Santos">Gisele de Souza Santos</option>
+    <option value="Gracielle Moreira">Gracielle Moreira</option>
+    <option value="Guilherme Pixtopay">Guilherme Pixtopay</option>
+    <option value="Haniel Vaz">Haniel Vaz</option>
+    <option value="Jean Souza">Jean Souza</option>
+    <option value="Jessica Batista">Jessica Batista</option>
+    <option value="Joaquim Pixtopay">Joaquim Pixtopay</option>
+    <option value="Jordana da Silva Cardoso">Jordana da Silva Cardoso</option>
+    <option value="Josué Campagnoli">Josué Campagnoli</option>
+    <option value="João Brettas">João Brettas</option>
+    <option value="João Carvalho">João Carvalho</option>
+    <option value="João Magalhães">João Magalhães</option>
+    <option value="Julhiano Padilha Nogueira">Julhiano Padilha Nogueira</option>
+    <option value="Julian Alves de Oliveira">Julian Alves de Oliveira</option>
+    <option value="Kayke Martins">Kayke Martins</option>
+    <option value="Kellyane Araujo">Kellyane Araujo</option>
+    <option value="Leonardo Bermejo">Leonardo Bermejo</option>
+    <option value="Lorena Duarte">Lorena Duarte</option>
+    <option value="Lucas Alves">Lucas Alves</option>
+    <option value="Lucas Moreira">Lucas Moreira</option>
+    <option value="Lucas Santos Oliveira">Lucas Santos Oliveira</option>
+    <option value="Lucas Souza">Lucas Souza</option>
+    <option value="Luiz Gonçalves">Luiz Gonçalves</option>
+    <option value="Luiz Jesus">Luiz Jesus</option>
+    <option value="Marcela Carolina Souza">Marcela Carolina Souza</option>
+    <option value="Matheus Bavosi">Matheus Bavosi</option>
+    <option value="Milena Vieira">Milena Vieira</option>
+    <option value="Natan Barbosa">Natan Barbosa</option>
+    <option value="Nigel Mancini">Nigel Mancini</option>
+    <option value="Palma Pixtopay">Palma Pixtopay</option>
+    <option value="Pedro Faria">Pedro Faria</option>
+    <option value="Pedro Santos">Pedro Santos</option>
+    <option value="Pedro Soares">Pedro Soares</option>
+    <option value="Rafael Nicolau">Rafael Nicolau</option>
+    <option value="Rafael Oliveira">Rafael Oliveira</option>
+    <option value="Rafaela Parreira">Rafaela Parreira</option>
+    <option value="Rayene Santos">Rayene Santos</option>
+    <option value="Rebecca Nicodemus">Rebecca Nicodemus</option>
+    <option value="Renata Nogueira">Renata Nogueira</option>
+    <option value="Renato Macedo">Renato Macedo</option>
+    <option value="Robson Silva">Robson Silva</option>
+    <option value="Ruthe Silva">Ruthe Silva</option>
+    <option value="Simone Silva">Simone Silva</option>
+    <option value="Thales Sousa">Thales Sousa</option>
+    <option value="Thiago Monteiro">Thiago Monteiro</option>
+    <option value="Tiago Pedrosa">Tiago Pedrosa</option>
+    <option value="Victor Paula">Victor Paula</option>
+    <option value="Vinicius Pixtopay">Vinicius Pixtopay</option>
+    <option value="Vinícius Leite">Vinícius Leite</option>
+    <option value="Vitor Camargos">Vitor Camargos</option>
+    <option value="Wellington Gomes">Wellington Gomes</option>
+    <option value="Welton Carvalho">Welton Carvalho</option>
+    <option value="Yasmim Ribeiro">Yasmim Ribeiro</option>
+    <option value="Yussef Pixtopay">Yussef Pixtopay</option>
+  </select>
+  <select id="filter-area" onchange="applyFilters()" style="font-size:12px;padding:6px 10px;border-radius:8px;border:1.5px solid #2a2a2a;background:#111;color:#aaa;cursor:pointer;width:200px">
+    <option value="">Todas as áreas</option>
+    <option value="Risco">Risco</option>
+    <option value="Atendimento">Atendimento</option>
+    <option value="Suporte técnico">Suporte técnico</option>
+    <option value="Compliance">Compliance</option>
+    <option value="Tecnologia">Tecnologia</option>
+    <option value="Dados">Dados</option>
+    <option value="RH">RH</option>
+    <option value="Infra">Infra</option>
+    <option value="Outra">Outra</option>
+  </select>
+  <select id="filter-frente" onchange="applyFilters()" style="font-size:12px;padding:6px 10px;border-radius:8px;border:1.5px solid #2a2a2a;background:#111;color:#aaa;cursor:pointer;width:200px">
+    <option value="">Todas as frentes</option>
+    <option value="Produtos Internos">Produtos Internos</option>
+    <option value="Pagamentos">Pagamentos</option>
+    <option value="Aplicativo">Aplicativo</option>
+    <option value="Produtos Finais">Produtos Finais</option>
+  </select>
+  <button onclick="clearFilters()" id="btn-clear-filters" style="font-size:12px;padding:6px 12px;border-radius:8px;border:1.5px solid #2a2a2a;background:transparent;color:#555;cursor:pointer;display:none;white-space:nowrap">✕ Limpar</button>
+</div>
+
+<div class="board-wrap">
+  <div class="board" id="board"></div>
+</div>
+
+</div><!-- /page-wrap -->
+
+<!-- MODAL -->
+<div class="modal-overlay" id="modal-overlay" onclick="closeModalOutside(event)">
+  <div class="modal">
+    <h2 id="modal-title">Nova demanda</h2>
+
+    <div class="field">
+      <label>Título da demanda <span style="color:#f87171">*</span></label>
+      <input type="text" id="f-titulo" placeholder="Ex: Automatizar certificados com compliance" oninput="checkFormValid()" />
+    </div>
+
+    <div class="field">
+      <label>Descrição <span style="color:#f87171">*</span></label>
+      <textarea id="f-desc" placeholder="Descreva o contexto, objetivo e detalhes da demanda..." oninput="checkFormValid()"></textarea>
+    </div>
+
+    <div class="field-row">
+      <div class="field">
+        <label>Solicitante <span style="color:#f87171">*</span></label>
+        <div class="custom-select-wrap" id="wrap-sol">
+          <div class="custom-select-trigger" id="trigger-sol" onclick="csoToggle('sol')">
+            <span id="label-sol" style="color:#555">Selecione</span>
+            <svg class="arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+          </div>
+          <div class="custom-select-dropdown" id="dd-sol">
+            <input class="custom-select-search" placeholder="Buscar..." oninput="csoSearch(this,'sol-opts')" />
+            <div class="custom-select-opts" id="sol-opts">
+              <div class="cso" data-val="Alaf Martins" onclick="csoSelect(this,'sol')">Alaf Martins</div>
+              <div class="cso" data-val="Alana Cruz Moreira" onclick="csoSelect(this,'sol')">Alana Cruz Moreira</div>
+              <div class="cso" data-val="Alessandra Casariego" onclick="csoSelect(this,'sol')">Alessandra Casariego</div>
+              <div class="cso" data-val="Alexandra de Souza Reis" onclick="csoSelect(this,'sol')">Alexandra de Souza Reis</div>
+              <div class="cso" data-val="Alexia Benevides" onclick="csoSelect(this,'sol')">Alexia Benevides</div>
+              <div class="cso" data-val="Allan Pixtopay" onclick="csoSelect(this,'sol')">Allan Pixtopay</div>
+              <div class="cso" data-val="Amanda Souza" onclick="csoSelect(this,'sol')">Amanda Souza</div>
+              <div class="cso" data-val="Andre Conjo" onclick="csoSelect(this,'sol')">Andre Conjo</div>
+              <div class="cso" data-val="Andrea Marques" onclick="csoSelect(this,'sol')">Andrea Marques</div>
+              <div class="cso" data-val="Andresa Rezende Barbosa" onclick="csoSelect(this,'sol')">Andresa Rezende Barbosa</div>
+              <div class="cso" data-val="Andressa Bacelar" onclick="csoSelect(this,'sol')">Andressa Bacelar</div>
+              <div class="cso" data-val="Ari Cunha" onclick="csoSelect(this,'sol')">Ari Cunha</div>
+              <div class="cso" data-val="Barbara Dias" onclick="csoSelect(this,'sol')">Barbara Dias</div>
+              <div class="cso" data-val="Barbara Madureira" onclick="csoSelect(this,'sol')">Barbara Madureira</div>
+              <div class="cso" data-val="Brenner Cunha" onclick="csoSelect(this,'sol')">Brenner Cunha</div>
+              <div class="cso" data-val="Bruno Furtado" onclick="csoSelect(this,'sol')">Bruno Furtado</div>
+              <div class="cso" data-val="Bárbara Alves" onclick="csoSelect(this,'sol')">Bárbara Alves</div>
+              <div class="cso" data-val="Camilla Rizzo" onclick="csoSelect(this,'sol')">Camilla Rizzo</div>
+              <div class="cso" data-val="Camilo Melgaço" onclick="csoSelect(this,'sol')">Camilo Melgaço</div>
+              <div class="cso" data-val="Carine Flavia Almeida" onclick="csoSelect(this,'sol')">Carine Flavia Almeida</div>
+              <div class="cso" data-val="Cristyan Domingos" onclick="csoSelect(this,'sol')">Cristyan Domingos</div>
+              <div class="cso" data-val="Daniel Pixtopay" onclick="csoSelect(this,'sol')">Daniel Pixtopay</div>
+              <div class="cso" data-val="Danilo Pixtopay" onclick="csoSelect(this,'sol')">Danilo Pixtopay</div>
+              <div class="cso" data-val="Diego Martins" onclick="csoSelect(this,'sol')">Diego Martins</div>
+              <div class="cso" data-val="Diego Silva" onclick="csoSelect(this,'sol')">Diego Silva</div>
+              <div class="cso" data-val="Eduardo Medeiros de Souza Santos" onclick="csoSelect(this,'sol')">Eduardo Medeiros de Souza Santos</div>
+              <div class="cso" data-val="Ellen Silva" onclick="csoSelect(this,'sol')">Ellen Silva</div>
+              <div class="cso" data-val="Enzo Soares" onclick="csoSelect(this,'sol')">Enzo Soares</div>
+              <div class="cso" data-val="Felipe Costa" onclick="csoSelect(this,'sol')">Felipe Costa</div>
+              <div class="cso" data-val="Felipe Silva" onclick="csoSelect(this,'sol')">Felipe Silva</div>
+              <div class="cso" data-val="Fernanda Araujo" onclick="csoSelect(this,'sol')">Fernanda Araujo</div>
+              <div class="cso" data-val="Franklin Sampaio" onclick="csoSelect(this,'sol')">Franklin Sampaio</div>
+              <div class="cso" data-val="Gabriell Furtado" onclick="csoSelect(this,'sol')">Gabriell Furtado</div>
+              <div class="cso" data-val="Gabrielle Carvalho" onclick="csoSelect(this,'sol')">Gabrielle Carvalho</div>
+              <div class="cso" data-val="Gisele de Souza Santos" onclick="csoSelect(this,'sol')">Gisele de Souza Santos</div>
+              <div class="cso" data-val="Gracielle Moreira" onclick="csoSelect(this,'sol')">Gracielle Moreira</div>
+              <div class="cso" data-val="Guilherme Pixtopay" onclick="csoSelect(this,'sol')">Guilherme Pixtopay</div>
+              <div class="cso" data-val="Haniel Vaz" onclick="csoSelect(this,'sol')">Haniel Vaz</div>
+              <div class="cso" data-val="Jean Souza" onclick="csoSelect(this,'sol')">Jean Souza</div>
+              <div class="cso" data-val="Jessica Batista" onclick="csoSelect(this,'sol')">Jessica Batista</div>
+              <div class="cso" data-val="Joaquim Pixtopay" onclick="csoSelect(this,'sol')">Joaquim Pixtopay</div>
+              <div class="cso" data-val="Jordana da Silva Cardoso" onclick="csoSelect(this,'sol')">Jordana da Silva Cardoso</div>
+              <div class="cso" data-val="Josué Campagnoli" onclick="csoSelect(this,'sol')">Josué Campagnoli</div>
+              <div class="cso" data-val="João Brettas" onclick="csoSelect(this,'sol')">João Brettas</div>
+              <div class="cso" data-val="João Carvalho" onclick="csoSelect(this,'sol')">João Carvalho</div>
+              <div class="cso" data-val="João Magalhães" onclick="csoSelect(this,'sol')">João Magalhães</div>
+              <div class="cso" data-val="Julhiano Padilha Nogueira" onclick="csoSelect(this,'sol')">Julhiano Padilha Nogueira</div>
+              <div class="cso" data-val="Julian Alves de Oliveira" onclick="csoSelect(this,'sol')">Julian Alves de Oliveira</div>
+              <div class="cso" data-val="Kayke Martins" onclick="csoSelect(this,'sol')">Kayke Martins</div>
+              <div class="cso" data-val="Kellyane Araujo" onclick="csoSelect(this,'sol')">Kellyane Araujo</div>
+              <div class="cso" data-val="Leonardo Bermejo" onclick="csoSelect(this,'sol')">Leonardo Bermejo</div>
+              <div class="cso" data-val="Lorena Duarte" onclick="csoSelect(this,'sol')">Lorena Duarte</div>
+              <div class="cso" data-val="Lucas Alves" onclick="csoSelect(this,'sol')">Lucas Alves</div>
+              <div class="cso" data-val="Lucas Moreira" onclick="csoSelect(this,'sol')">Lucas Moreira</div>
+              <div class="cso" data-val="Lucas Santos Oliveira" onclick="csoSelect(this,'sol')">Lucas Santos Oliveira</div>
+              <div class="cso" data-val="Lucas Souza" onclick="csoSelect(this,'sol')">Lucas Souza</div>
+              <div class="cso" data-val="Luiz Gonçalves" onclick="csoSelect(this,'sol')">Luiz Gonçalves</div>
+              <div class="cso" data-val="Luiz Jesus" onclick="csoSelect(this,'sol')">Luiz Jesus</div>
+              <div class="cso" data-val="Marcela Carolina Souza" onclick="csoSelect(this,'sol')">Marcela Carolina Souza</div>
+              <div class="cso" data-val="Matheus Bavosi" onclick="csoSelect(this,'sol')">Matheus Bavosi</div>
+              <div class="cso" data-val="Milena Vieira" onclick="csoSelect(this,'sol')">Milena Vieira</div>
+              <div class="cso" data-val="Natan Barbosa" onclick="csoSelect(this,'sol')">Natan Barbosa</div>
+              <div class="cso" data-val="Nigel Mancini" onclick="csoSelect(this,'sol')">Nigel Mancini</div>
+              <div class="cso" data-val="Palma Pixtopay" onclick="csoSelect(this,'sol')">Palma Pixtopay</div>
+              <div class="cso" data-val="Pedro Faria" onclick="csoSelect(this,'sol')">Pedro Faria</div>
+              <div class="cso" data-val="Pedro Santos" onclick="csoSelect(this,'sol')">Pedro Santos</div>
+              <div class="cso" data-val="Pedro Soares" onclick="csoSelect(this,'sol')">Pedro Soares</div>
+              <div class="cso" data-val="Rafael Nicolau" onclick="csoSelect(this,'sol')">Rafael Nicolau</div>
+              <div class="cso" data-val="Rafael Oliveira" onclick="csoSelect(this,'sol')">Rafael Oliveira</div>
+              <div class="cso" data-val="Rafaela Parreira" onclick="csoSelect(this,'sol')">Rafaela Parreira</div>
+              <div class="cso" data-val="Rayene Santos" onclick="csoSelect(this,'sol')">Rayene Santos</div>
+              <div class="cso" data-val="Rebecca Nicodemus" onclick="csoSelect(this,'sol')">Rebecca Nicodemus</div>
+              <div class="cso" data-val="Renata Nogueira" onclick="csoSelect(this,'sol')">Renata Nogueira</div>
+              <div class="cso" data-val="Renato Macedo" onclick="csoSelect(this,'sol')">Renato Macedo</div>
+              <div class="cso" data-val="Robson Silva" onclick="csoSelect(this,'sol')">Robson Silva</div>
+              <div class="cso" data-val="Ruthe Silva" onclick="csoSelect(this,'sol')">Ruthe Silva</div>
+              <div class="cso" data-val="Simone Silva" onclick="csoSelect(this,'sol')">Simone Silva</div>
+              <div class="cso" data-val="Thales Sousa" onclick="csoSelect(this,'sol')">Thales Sousa</div>
+              <div class="cso" data-val="Thiago Monteiro" onclick="csoSelect(this,'sol')">Thiago Monteiro</div>
+              <div class="cso" data-val="Tiago Pedrosa" onclick="csoSelect(this,'sol')">Tiago Pedrosa</div>
+              <div class="cso" data-val="Victor Paula" onclick="csoSelect(this,'sol')">Victor Paula</div>
+              <div class="cso" data-val="Vinicius Pixtopay" onclick="csoSelect(this,'sol')">Vinicius Pixtopay</div>
+              <div class="cso" data-val="Vinícius Leite" onclick="csoSelect(this,'sol')">Vinícius Leite</div>
+              <div class="cso" data-val="Vitor Camargos" onclick="csoSelect(this,'sol')">Vitor Camargos</div>
+              <div class="cso" data-val="Wellington Gomes" onclick="csoSelect(this,'sol')">Wellington Gomes</div>
+              <div class="cso" data-val="Welton Carvalho" onclick="csoSelect(this,'sol')">Welton Carvalho</div>
+              <div class="cso" data-val="Yasmim Ribeiro" onclick="csoSelect(this,'sol')">Yasmim Ribeiro</div>
+              <div class="cso" data-val="Yussef Pixtopay" onclick="csoSelect(this,'sol')">Yussef Pixtopay</div>
+              <div class="cso outro" data-val="__outro__" onclick="csoSelect(this,'sol')">Outro</div>
+            </div>
+          </div>
+        </div>
+        <input type="hidden" id="f-sol" />
+        <div id="field-sol-custom" style="display:none;margin-top:8px">
+          <input type="text" id="f-sol-custom" placeholder="Digite o nome do solicitante..." oninput="checkFormValid()" />
+        </div>
+      </div>
+      <div class="field">
+        <label>Ticket Cactus</label>
+        <input type="text" id="f-ticket" placeholder="TICKET-XXXXXX" style="font-family:inherit" />
+      </div>
+    </div>
+
+    <div class="field-row">
+      <div class="field">
+        <label>Área <span style="color:#f87171">*</span></label>
+        <div class="custom-select-wrap" id="wrap-area">
+          <div class="custom-select-trigger" id="trigger-area" onclick="csoToggle('area')">
+            <span id="label-area" style="color:#555">Selecione</span>
+            <svg class="arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+          </div>
+          <div class="custom-select-dropdown" id="dd-area">
+            <div class="custom-select-opts" id="area-opts">
+              <div class="cso" data-val="Risco" onclick="csoSelect(this,'area')">Risco</div>
+              <div class="cso" data-val="Atendimento" onclick="csoSelect(this,'area')">Atendimento</div>
+              <div class="cso" data-val="Suporte técnico" onclick="csoSelect(this,'area')">Suporte técnico</div>
+              <div class="cso" data-val="Compliance" onclick="csoSelect(this,'area')">Compliance</div>
+              <div class="cso" data-val="Tecnologia" onclick="csoSelect(this,'area')">Tecnologia</div>
+              <div class="cso" data-val="Dados" onclick="csoSelect(this,'area')">Dados</div>
+              <div class="cso" data-val="RH" onclick="csoSelect(this,'area')">RH</div>
+              <div class="cso" data-val="Infra" onclick="csoSelect(this,'area')">Infra</div>
+              <div class="cso outro" data-val="Outra" onclick="csoSelect(this,'area')">Outra</div>
+            </div>
+          </div>
+        </div>
+        <input type="hidden" id="f-area" />
+      </div>
+      <div class="field">
+        <label>Frente <span style="color:#f87171">*</span></label>
+        <div class="custom-select-wrap" id="wrap-frente">
+          <div class="custom-select-trigger" id="trigger-frente" onclick="csoToggle('frente')">
+            <span id="label-frente" style="color:#555">Selecione</span>
+            <svg class="arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+          </div>
+          <div class="custom-select-dropdown" id="dd-frente">
+            <div class="custom-select-opts" id="frente-opts">
+              <div class="cso" data-val="Produtos Internos" onclick="csoSelect(this,'frente')">Produtos Internos</div>
+              <div class="cso" data-val="Pagamentos" onclick="csoSelect(this,'frente')">Pagamentos</div>
+              <div class="cso" data-val="Aplicativo" onclick="csoSelect(this,'frente')">Aplicativo</div>
+              <div class="cso" data-val="Produtos Finais" onclick="csoSelect(this,'frente')">Produtos Finais</div>
+            </div>
+          </div>
+        </div>
+        <input type="hidden" id="f-frente" />
+      </div>
+    </div>
+    <div class="field" id="field-outra-area" style="display:none;margin-top:-8px">
+      <label>Qual área?</label>
+      <input type="text" id="f-area-custom" placeholder="Descreva a área..." oninput="checkFormValid()" />
+    </div>
+
+    <div class="field">
+      <label>Prioridade</label>
+      <div class="prio-options">
+        <button class="prio-opt" data-prio="1" onclick="selectPrio(this)">P1 — Alta</button>
+        <button class="prio-opt" data-prio="2" onclick="selectPrio(this)">P2 — Média</button>
+        <button class="prio-opt" data-prio="3" onclick="selectPrio(this)">P3 — Baixa</button>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Status</label>
+      <div class="status-options">
+        <button class="status-opt" data-status="Backlog" onclick="selectStatus(this)">Backlog</button>
+        <button class="status-opt" data-status="Em análise" onclick="selectStatus(this)">Em análise</button>
+        <button class="status-opt" data-status="Em desenvolvimento" onclick="selectStatus(this)">Em desenvolvimento</button>
+        <button class="status-opt" data-status="Bloqueado" onclick="selectStatus(this)">Bloqueado</button>
+        <button class="status-opt" data-status="Concluído" onclick="selectStatus(this)">Concluído</button>
+      </div>
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn btn-danger" id="btn-delete" style="display:none;margin-right:auto" onclick="deleteCard()">Excluir</button>
+      <button class="btn btn-outline" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-primary" id="btn-save-card" onclick="saveCard()" disabled style="opacity:.35;cursor:not-allowed">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const LANES = [
+  { key: 'Backlog',            label: 'Backlog',            dot: 'dot-backlog',   sel: 'sel-backlog',   tip: 'Demandas solicitadas ao time de produto que ainda não passaram por triagem.' },
+  { key: 'Em análise',         label: 'Em análise',         dot: 'dot-analise',   sel: 'sel-analise',   tip: 'Demandas priorizadas e em construção de regras, comportamentos e estudos pelo APM.' },
+  { key: 'Em desenvolvimento', label: 'Em desenvolvimento', dot: 'dot-dev',       sel: 'sel-dev',       tip: 'Demandas que já estão com o time de desenvolvimento em andamento.' },
+  { key: 'Bloqueado',          label: 'Bloqueado',          dot: 'dot-bloqueado', sel: 'sel-bloqueado', tip: 'Demandas que tiveram algum impedimento. Ao mover um card para cá, é necessário informar o motivo.' },
+  { key: 'Concluído',          label: 'Concluído',          dot: 'dot-concluido', sel: 'sel-concluido', tip: 'Demandas já entregues em produção.' },
+];
+// Lane order already correct: Backlog > Em análise > Em desenvolvimento > Bloqueado > Concluído
+
+const defaultData = [
+  { id:1,  titulo:"Automatizar o processo de certificados com compliance - V1", desc:"Em desenvolvimento pelo time interno. Previsão de apresentação no final de junho.", solicitante:"João Carvalho", ticket:"", prio:"1", status:"Em desenvolvimento" },
+  { id:2,  titulo:"Base de Jogadores com Autoexclusão por motivo de vício", desc:"Em avaliação com Cactus. Ticket ainda em aberto.", solicitante:"Renata Nogueira", ticket:"TICKET-206676", prio:"2", status:"Em análise" },
+  { id:3,  titulo:"Projeto - Criação de Usuário de Serviço", desc:"Priorizado com o time de Projetos Cactus. Aguardando status report do projeto.", solicitante:"Gabriell Furtado", ticket:"TICKET-206611", prio:"3", status:"Em análise" },
+  { id:4,  titulo:"Criar políticas de Cookies em ambas as casas", desc:"", solicitante:"João Carvalho", ticket:"", prio:"", status:"Backlog" },
+  { id:5,  titulo:"Atualizar termos e condições nos sites Jogão e BullsBet", desc:"Retirada dos termos de apostas de ambas as plataformas — contêm informações repetitivas e incorretas em relação aos T&C vigentes.", solicitante:"João Carvalho", ticket:"", prio:"", status:"Backlog" },
+  { id:6,  titulo:"Cadastro de dados bancários no perfil do jogador", desc:"", solicitante:"João Carvalho", ticket:"", prio:"", status:"Backlog" },
+  { id:7,  titulo:"Alteração no Front-End - Impedidos de Apostar", desc:"Inclusão de checkbox informando o usuário sobre os impedidos de apostar + encaminhamento da lista de colaboradores para a Legitimuz para bloqueio em badlist.", solicitante:"João Carvalho", ticket:"", prio:"", status:"Backlog" },
+  { id:8,  titulo:"Geolocalização V2", desc:"", solicitante:"Alessandra Casariego", ticket:"", prio:"", status:"Backlog" },
+  { id:9,  titulo:"Avaliar popup de novo termo de Política de Privacidade", desc:"", solicitante:"Renata Nogueira", ticket:"", prio:"", status:"Backlog" },
+  { id:10, titulo:"Bloqueio de envio de documentos sensíveis para e-mail pessoal", desc:"", solicitante:"Alessandra Casariego", ticket:"", prio:"", status:"Backlog" },
+  { id:11, titulo:"Bloqueio de acesso ao sistema em momentos específicos", desc:"", solicitante:"Alessandra Casariego", ticket:"", prio:"", status:"Backlog" },
+  { id:12, titulo:"Criação de fluxo de mensagens padronizadas – Jogo Responsável", desc:"Facilitar defesas em eventuais processos judiciais e fomentar a Política de Jogo Responsável. Proposta encaminhada ao time de CRM para validação de impacto.", solicitante:"Felipe Costa", ticket:"", prio:"", status:"Backlog" },
+  { id:13, titulo:"Ajuste de nomenclatura - Política de PLD", desc:"", solicitante:"Felipe Costa", ticket:"", prio:"", status:"Backlog" },
+  { id:14, titulo:"Levantamento de usuários retornados pelo SIGAP sem bloqueio", desc:"Levantamento junto à Cactus dos usuários que retornaram do SIGAP com orientação de bloqueio por impedimento legal mas não foram bloqueados.", solicitante:"Felipe Costa", ticket:"", prio:"", status:"Backlog" },
+  { id:15, titulo:"Validação periódica dos impedidos de apostar (levantamento de impacto e esforço)", desc:"", solicitante:"Felipe Costa", ticket:"", prio:"", status:"Backlog" },
+  { id:16, titulo:"Autenticação no acesso — Portaria 722, Anexo I, itens 11–16 (levantamento de impacto e esforço)", desc:"", solicitante:"Felipe Costa", ticket:"", prio:"", status:"Backlog" },
+];
+
+let data = JSON.parse(localStorage.getItem('board_demandas_v1') || 'null') || defaultData;
+let editingId = null;
+
+let activeFilters = { sol: '', area: '', frente: '' };
+
+function save() {
+  localStorage.setItem('board_demandas_v1', JSON.stringify(data));
+  }
+
+
+function applyFilters() {
+  activeFilters.sol = document.getElementById('filter-sol').value;
+  activeFilters.area = document.getElementById('filter-area').value;
+  activeFilters.frente = document.getElementById('filter-frente').value;
+  const hasFilter = activeFilters.sol || activeFilters.area || activeFilters.frente;
+  document.getElementById('btn-clear-filters').style.display = hasFilter ? '' : 'none';
+  renderBoard();
+  populateFilterOptions();
+}
+
+function populateFilterOptions() {
+  // Filtrar apenas valores que existem em cards visíveis (sem filtro ativo ou com filtro)
+  const allData = data;
+
+  // Solicitantes
+  const sols = [...new Set(allData.map(d => d.solicitante).filter(Boolean))].sort();
+  const selSol = document.getElementById('filter-sol');
+  const curSol = selSol.value;
+  // Manter opção atual mesmo que não tenha mais cards
+  const solOpts = ['', ...sols];
+  if (curSol && !solOpts.includes(curSol)) solOpts.push(curSol);
+  selSol.innerHTML = '<option value="">Todos os solicitantes</option>' +
+    sols.map(s => `<option value="${s}" ${curSol===s?'selected':''}>${s}</option>`).join('');
+
+  // Áreas
+  const areas = [...new Set(allData.map(d => d.area).filter(Boolean))].sort();
+  const selArea = document.getElementById('filter-area');
+  const curArea = selArea.value;
+  selArea.innerHTML = '<option value="">Todas as áreas</option>' +
+    areas.map(a => `<option value="${a}" ${curArea===a?'selected':''}>${a}</option>`).join('');
+
+  // Frentes
+  const frentes = [...new Set(allData.map(d => d.frente).filter(Boolean))].sort();
+  const selFrente = document.getElementById('filter-frente');
+  const curFrente = selFrente.value;
+  selFrente.innerHTML = '<option value="">Todas as frentes</option>' +
+    frentes.map(f => `<option value="${f}" ${curFrente===f?'selected':''}>${f}</option>`).join('');
+}
+
+function clearFilters() {
+  activeFilters = { sol: '', area: '', frente: '' };
+  document.getElementById('filter-sol').value = '';
+  document.getElementById('filter-area').value = '';
+  document.getElementById('filter-frente').value = '';
+  document.getElementById('btn-clear-filters').style.display = 'none';
+  renderBoard();
+}
+
+function filterSelect(selectId, query) {
+  const sel = document.getElementById(selectId);
+  const q = query.toLowerCase();
+  Array.from(sel.options).forEach(opt => {
+    opt.style.display = (opt.value === '' || opt.text.toLowerCase().includes(q)) ? '' : 'none';
+  });
+}
+
+function filterSolOptions(q) {
+  document.getElementById('sol-dropdown').style.display = 'block';
+  const opts = document.querySelectorAll('#sol-options .sol-opt');
+  opts.forEach(o => {
+    const txt = o.textContent.toLowerCase();
+    o.style.display = (txt.includes(q.toLowerCase()) || o.classList.contains('sol-opt-outro')) ? '' : 'none';
+  });
+}
+
+function selectSol(val) {
+  document.getElementById('sol-dropdown').style.display = 'none';
+  if (val === '__outro__') {
+    document.getElementById('f-sol').value = '';
+    document.getElementById('field-sol-custom').style.display = '';
+    document.getElementById('f-sol-custom').focus();
+  } else {
+    document.getElementById('f-sol').value = val;
+    document.getElementById('field-sol-custom').style.display = 'none';
+    document.getElementById('f-sol-custom').value = '';
+  }
+  checkFormValid();
+}
+
+document.addEventListener('click', function(e) {
+  const dd = document.getElementById('sol-dropdown');
+  if (dd) dd.style.display = 'none';
+});
+
+document.addEventListener('change', function(e) {
+  if (e.target.id === 'f-sol') {
+    const custom = document.getElementById('field-sol-custom');
+    if (e.target.value === '__outro__') {
+      custom.style.display = '';
+      document.getElementById('f-sol-custom').focus();
+    } else {
+      custom.style.display = 'none';
+      document.getElementById('f-sol-custom').value = '';
+    }
+    checkFormValid();
+  }
+});
+
+function checkFormValid() {
+  const titulo = document.getElementById('f-titulo').value.trim();
+  const desc = document.getElementById('f-desc').value.trim();
+  const solSelect = document.getElementById('f-sol').value;
+  const solCustom = document.getElementById('f-sol-custom') ? document.getElementById('f-sol-custom').value.trim() : '';
+  const sol = solSelect === '__outro__' ? solCustom : solSelect;
+  const area = document.getElementById('f-area').value;
+  const areaCustom = document.getElementById('f-area-custom') ? document.getElementById('f-area-custom').value.trim() : '';
+  const frente = document.getElementById('f-frente').value;
+  const areaOk = area && (area !== 'Outra' || areaCustom);
+  const valid = titulo && desc && sol && areaOk && frente;
+  const btn = document.getElementById('btn-save-card');
+  if (btn) {
+    btn.disabled = !valid;
+    btn.style.opacity = valid ? '1' : '.35';
+    btn.style.cursor = valid ? 'pointer' : 'not-allowed';
+  }
+}
+
+
+function csoToggle(name) {
+  const dd = document.getElementById('dd-'+name);
+  const trigger = document.getElementById('trigger-'+name);
+  const isOpen = dd.classList.contains('open');
+  // fechar todos
+  ['sol','area','frente'].forEach(n => {
+    document.getElementById('dd-'+n)?.classList.remove('open');
+    document.getElementById('trigger-'+n)?.classList.remove('open');
+  });
+  if (!isOpen) { dd.classList.add('open'); trigger.classList.add('open'); }
+}
+
+function csoSelect(el, name) {
+  const val = el.dataset.val;
+  const label = document.getElementById('label-'+name);
+  // limpar selected
+  document.querySelectorAll('#'+name+'-opts .cso').forEach(o => o.classList.remove('selected'));
+  el.classList.add('selected');
+  const trigger = document.getElementById('trigger-'+name);
+  document.getElementById('dd-'+name).classList.remove('open');
+  trigger.classList.remove('open');
+
+  if (name === 'sol') {
+    if (val === '__outro__') {
+      label.textContent = 'Outro'; label.style.color = '#e0e0e0';
+      trigger.classList.add('has-val');
+      document.getElementById('f-sol').value = '__outro__';
+      document.getElementById('field-sol-custom').style.display = '';
+      document.getElementById('f-sol-custom').focus();
+    } else {
+      label.textContent = val; label.style.color = '#e0e0e0';
+      trigger.classList.add('has-val');
+      document.getElementById('f-sol').value = val;
+      document.getElementById('field-sol-custom').style.display = 'none';
+      document.getElementById('f-sol-custom').value = '';
+    }
+  } else if (name === 'area') {
+    label.textContent = val; label.style.color = '#e0e0e0';
+    trigger.classList.add('has-val');
+    document.getElementById('f-area').value = val;
+    const outraField = document.getElementById('field-outra-area');
+    if (outraField) outraField.style.display = val === 'Outra' ? '' : 'none';
+    if (val !== 'Outra') { const fc = document.getElementById('f-area-custom'); if(fc) fc.value=''; }
+  } else if (name === 'frente') {
+    label.textContent = val; label.style.color = '#e0e0e0';
+    trigger.classList.add('has-val');
+    document.getElementById('f-frente').value = val;
+  }
+  checkFormValid();
+}
+
+function csoSearch(input, optsId) {
+  const q = input.value.toLowerCase();
+  document.querySelectorAll('#'+optsId+' .cso').forEach(o => {
+    o.style.display = o.textContent.toLowerCase().includes(q) ? '' : 'none';
+  });
+}
+
+function csoReset(name, placeholder) {
+  const label = document.getElementById('label-'+name);
+  const trigger = document.getElementById('trigger-'+name);
+  if (label) { label.textContent = placeholder; label.style.color = '#555'; }
+  if (trigger) { trigger.classList.remove('has-val'); trigger.classList.remove('open'); }
+  document.getElementById('dd-'+name)?.classList.remove('open');
+  document.querySelectorAll('#'+name+'-opts .cso').forEach(o => o.classList.remove('selected'));
+  const search = document.querySelector('#dd-'+name+' .custom-select-search');
+  if (search) { search.value = ''; csoSearch(search, name+'-opts'); }
+  const hidden = document.getElementById('f-'+name);
+  if (hidden) hidden.value = '';
+}
+
+function csoSetVal(name, val, placeholder) {
+  if (!val) { csoReset(name, placeholder); document.getElementById('f-'+name).value = ''; return; }
+  const label = document.getElementById('label-'+name);
+  const trigger = document.getElementById('trigger-'+name);
+  const opt = document.querySelector('#'+name+'-opts .cso[data-val="'+val+'"]');
+  document.querySelectorAll('#'+name+'-opts .cso').forEach(o => o.classList.remove('selected'));
+  if (opt) opt.classList.add('selected');
+  if (label) { label.textContent = val; label.style.color = '#e0e0e0'; }
+  if (trigger) trigger.classList.add('has-val');
+  document.getElementById('f-'+name).value = val;
+}
+
+document.addEventListener('click', function(e) {
+  ['sol','area','frente'].forEach(n => {
+    const wrap = document.getElementById('wrap-'+n);
+    if (wrap && !wrap.contains(e.target)) {
+      document.getElementById('dd-'+n)?.classList.remove('open');
+      document.getElementById('trigger-'+n)?.classList.remove('open');
+    }
+  });
+});
+
+function toggleOutraArea(val) {
+  const field = document.getElementById('field-outra-area');
+  field.style.display = val === 'Outra' ? '' : 'none';
+  if (val !== 'Outra') document.getElementById('f-area-custom').value = '';
+}
+
+function matchesFilters(d) {
+  if (activeFilters.sol && d.solicitante !== activeFilters.sol) return false;
+  if (activeFilters.area && d.area !== activeFilters.area) return false;
+  if (activeFilters.frente && d.frente !== activeFilters.frente) return false;
+  return true;
+}
+
+function prioCls(p) { return p==='1'?'chip-prio1':p==='2'?'chip-prio2':p==='3'?'chip-prio3':''; }
+function prioLabel(p) { return p?'P'+p+' — '+(p==='1'?'Alta':p==='2'?'Média':'Baixa'):''; }
+
+let dragId = null;
+let pendingBlockId = null;
+let pendingBlockLane = null;
+
+function showTip(e, id) {
+  const box = document.getElementById(id);
+  if (!box) return;
+  box.classList.add('visible');
+  const rect = e.target.getBoundingClientRect();
+  box.style.position = 'fixed';
+  box.style.top = (rect.bottom + 8) + 'px';
+  box.style.left = rect.left + 'px';
+  box.style.zIndex = '9999';
+}
+
+function hideTip(id) {
+  const box = document.getElementById(id);
+  if (box) box.classList.remove('visible');
+}
+
+function cancelBlock() {
+  document.getElementById('block-modal-overlay').classList.remove('open');
+  pendingBlockId = null;
+  pendingBlockLane = null;
+  renderBoard();
+}
+
+function confirmBlock() {
+  const reason = document.getElementById('block-reason').value.trim();
+  if (!reason) { document.getElementById('block-reason').style.borderColor = '#ef4444'; return; }
+  const d = data.find(x => x.id === pendingBlockId);
+  if (d) { d.status = 'Bloqueado'; d.blockReason = reason; save(); }
+  document.getElementById('block-modal-overlay').classList.remove('open');
+  pendingBlockId = null; pendingBlockLane = null;
+  renderBoard();
+}
+
+function renderBoard() {
+  const board = document.getElementById('board');
+  board.innerHTML = '';
+  LANES.forEach(lane => {
+    const items = data.filter(d => d.status === lane.key && matchesFilters(d));
+
+    const laneEl = document.createElement('div');
+    laneEl.className = 'lane';
+    laneEl.innerHTML = `
+      <div class="lane-header">
+        <div class="lane-dot ${lane.dot}"></div>
+        <div class="tooltip-wrap">
+          <span class="lane-title">${lane.label}</span>
+          <span class="tooltip-icon" onmouseenter="showTip(event,'tip-${lane.key}')" onmouseleave="hideTip('tip-${lane.key}')">?</span>
+          <div class="tooltip-box" id="tip-${lane.key}">${lane.tip}</div>
+        </div>
+        <span class="lane-count">${items.length}</span>
+      </div>
+      <div class="lane-body" data-lane="${lane.key}">
+        <button class="add-card-btn" onclick="openModal(null,'${lane.key}')">+ Adicionar</button>
+      </div>`;
+
+    const body = laneEl.querySelector('.lane-body');
+
+    // drag over / drop na lane
+    body.addEventListener('dragover', e => {
+      e.preventDefault();
+      body.classList.add('drag-over');
+      const afterEl = getDragAfterElement(body, e.clientY);
+      const dragging = document.querySelector('.dragging');
+      if (dragging) {
+        if (!afterEl) body.insertBefore(dragging, body.querySelector('.add-card-btn'));
+        else body.insertBefore(dragging, afterEl);
+      }
+    });
+    body.addEventListener('dragleave', e => {
+      if (!body.contains(e.relatedTarget)) body.classList.remove('drag-over');
+    });
+    body.addEventListener('drop', e => {
+      e.preventDefault();
+      body.classList.remove('drag-over');
+      if (dragId !== null) {
+        const d = data.find(x => x.id === dragId);
+        if (d) {
+          if (lane.key === 'Bloqueado') {
+            pendingBlockId = dragId;
+            pendingBlockLane = lane.key;
+            document.getElementById('block-reason').value = '';
+            document.getElementById('block-modal-overlay').classList.add('open');
+          } else {
+            d.status = lane.key;
+            d.blockReason = '';
+            save(); renderBoard();
+          }
+        }
+      }
+    });
+
+    // criar cards
+    items.forEach(d => {
+      const card = document.createElement('div');
+      card.className = 'card';
+      card.draggable = true;
+      card.dataset.id = d.id;
+      card.innerHTML = `
+        <div class="card-header">
+          <span class="card-num">#${d.id}</span>
+          ${d.prio ? `<span class="chip ${prioCls(d.prio)}" style="font-size:10px;padding:2px 7px">${prioLabel(d.prio)}</span>` : ''}
+          <span class="drag-handle" title="Arrastar">⠿</span>
+        </div>
+        <div class="card-title">${d.titulo}</div>
+        ${d.desc ? `<div class="card-desc" style="margin-top:6px">${d.desc}</div>` : ''}
+        <div class="card-footer" style="margin-top:10px">
+          ${d.blockReason ? `<div style="font-size:11.5px;color:#f87171;background:rgba(239,68,68,0.1);border-left:2px solid #ef4444;padding:6px 8px;border-radius:0 6px 6px 0;margin-bottom:8px;line-height:1.4;width:100%">🔴 ${d.blockReason}</div>` : ''}
+          ${d.solicitante ? `<span class="chip chip-sol">${d.solicitante}</span>` : ''}
+          ${d.area ? `<span class="chip" style="background:#1a1a2e;color:#818cf8">${d.area}</span>` : ''}
+          ${d.frente ? `<span class="chip frente-chip-${d.frente.replace(/\s+/g,'-').toLowerCase()}">${d.frente}</span>` : ''}
+          ${d.ticket ? `<span class="chip chip-ticket">${d.ticket}</span>` : ''}
+        </div>`;
+
+      card.addEventListener('dragstart', e => {
+        dragId = d.id;
+        card.classList.add('dragging');
+        e.dataTransfer.effectAllowed = 'move';
+      });
+      card.addEventListener('dragend', () => {
+        card.classList.remove('dragging');
+        document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+        dragId = null;
+      });
+      card.addEventListener('click', e => {
+        if (!card.classList.contains('dragging')) openModal(d.id);
+      });
+
+      body.insertBefore(card, body.querySelector('.add-card-btn'));
+    });
+
+    board.appendChild(laneEl);
+  });
+  renderSummary();
+  populateFilterOptions();
+}
+
+function getDragAfterElement(container, y) {
+  const els = [...container.querySelectorAll('.card:not(.dragging)')];
+  return els.reduce((closest, el) => {
+    const box = el.getBoundingClientRect();
+    const offset = y - box.top - box.height / 2;
+    if (offset < 0 && offset > closest.offset) return { offset, element: el };
+    return closest;
+  }, { offset: Number.NEGATIVE_INFINITY }).element;
+}
+
+function renderSummary() {
+  const filtered = data.filter(d => matchesFilters(d));
+  const total = filtered.length;
+  const dev = filtered.filter(d => d.status === 'Em desenvolvimento').length;
+  const block = filtered.filter(d => d.status === 'Bloqueado').length;
+  const done = filtered.filter(d => d.status === 'Concluído').length;
+  const constr = filtered.filter(d => d.status === 'Em análise').length;
+  document.getElementById('summary-bar').innerHTML = `
+    <div class="summary-card"><div class="num">${total}</div><div class="lbl">Total</div></div>
+    <div class="summary-card"><div class="num num-purple">${dev}</div><div class="lbl">Em desenvolvimento</div></div>
+    <div class="summary-card"><div class="num num-amber">${constr}</div><div class="lbl">Em análise</div></div>
+    <div class="summary-card"><div class="num num-red">${block}</div><div class="lbl">Bloqueado</div></div>
+    <div class="summary-card"><div class="num num-green">${done}</div><div class="lbl">Concluído</div></div>`;
+}
+
+let modalDefaultStatus = null;
+
+function openModal(id, defaultStatus) {
+  editingId = id;
+  modalDefaultStatus = defaultStatus || null;
+  const overlay = document.getElementById('modal-overlay');
+  overlay.classList.add('show');
+
+  document.querySelectorAll('.prio-opt').forEach(b => b.className = 'prio-opt');
+  document.querySelectorAll('.status-opt').forEach(b => b.className = 'status-opt');
+
+  if (id) {
+    const d = data.find(x => x.id === id);
+    document.getElementById('modal-title').textContent = 'Editar demanda';
+    document.getElementById('f-titulo').value = d.titulo || '';
+    document.getElementById('f-desc').value = d.desc || '';
+    document.getElementById('f-sol').value = d.solicitante || '';
+    document.getElementById('f-ticket').value = d.ticket || '';
+    if (d.solicitante && ['Alaf Martins','Alana Cruz Moreira','Alessandra Casariego','Alexandra de Souza Reis','Alexia Benevides','Allan Pixtopay','Amanda Souza','Andre Conjo','Andrea Marques','Andresa Rezende Barbosa','Andressa Bacelar','Ari Cunha','Barbara Dias','Barbara Madureira','Bárbara Alves','Brenner Cunha','Bruno Furtado','Camilla Rizzo','Camilo Melgaço','Carine Flavia Almeida','Cristyan Domingos','Daniel Pixtopay','Danilo Pixtopay','Diego Martins','Diego Silva','Eduardo Medeiros de Souza Santos','Ellen Silva','Enzo Soares','Felipe Costa','Felipe Silva','Fernanda Araujo','Franklin Sampaio','Gabriell Furtado','Gabrielle Carvalho','Gisele de Souza Santos','Gracielle Moreira','Guilherme Pixtopay','Haniel Vaz','Jean Souza','Jessica Batista','Joaquim Pixtopay','Jordana da Silva Cardoso','Josué Campagnoli','João Brettas','João Carvalho','João Magalhães','Julhiano Padilha Nogueira','Julian Alves de Oliveira','Kayke Martins','Kellyane Araujo','Leonardo Bermejo','Lorena Duarte','Lucas Alves','Lucas Moreira','Lucas Santos Oliveira','Lucas Souza','Luiz Gonçalves','Luiz Jesus','Marcela Carolina Souza','Matheus Bavosi','Milena Vieira','Natan Barbosa','Nigel Mancini','Palma Pixtopay','Pedro Faria','Pedro Santos','Pedro Soares','Rafael Nicolau','Rafael Oliveira','Rafaela Parreira','Rayene Santos','Rebecca Nicodemus','Renata Nogueira','Renato Macedo','Robson Silva','Ruthe Silva','Simone Silva','Thales Sousa','Thiago Monteiro','Tiago Pedrosa','Victor Paula','Vinicius Pixtopay','Vinícius Leite','Vitor Camargos','Wellington Gomes','Welton Carvalho','Yasmim Ribeiro','Yussef Pixtopay'].includes(d.solicitante)) {
+      csoSetVal('sol', d.solicitante, 'Selecione');
+      document.getElementById('field-sol-custom').style.display = 'none';
+    } else if (d.solicitante) {
+      csoSetVal('sol', '__outro__', 'Selecione');
+      document.getElementById('label-sol').textContent = 'Outro';
+      document.getElementById('field-sol-custom').style.display = '';
+      document.getElementById('f-sol-custom').value = d.solicitante;
+    } else {
+      csoReset('sol', 'Selecione');
+      document.getElementById('field-sol-custom').style.display = 'none';
+    }
+    csoSetVal('area', d.area || '', 'Selecione');
+    if (d.area && !['Risco','Atendimento','Suporte técnico','Compliance','Tecnologia','Dados','RH','Infra','Outra'].includes(d.area)) {
+      csoSetVal('area','Outra','Selecione');
+      document.getElementById('field-outra-area').style.display = '';
+      document.getElementById('f-area-custom').value = d.area;
+    } else {
+      const outraF = document.getElementById('field-outra-area');
+      if (outraF) outraF.style.display = d.area === 'Outra' ? '' : 'none';
+    }
+    csoSetVal('frente', d.frente || '', 'Selecione');
+    document.getElementById('btn-delete').style.display = '';
+    setTimeout(checkFormValid, 50);
+    if (d.prio) document.querySelector(`.prio-opt[data-prio="${d.prio}"]`)?.classList.add('sel-p'+d.prio);
+    const lane = LANES.find(l => l.key === d.status);
+    if (lane) document.querySelector(`.status-opt[data-status="${d.status}"]`)?.classList.add(lane.sel);
+  } else {
+    document.getElementById('modal-title').textContent = 'Nova demanda';
+    document.getElementById('f-titulo').value = '';
+    document.getElementById('f-desc').value = '';
+    document.getElementById('f-sol').value = '';
+    document.getElementById('f-ticket').value = '';
+    csoReset('sol','Selecione'); document.getElementById('f-sol').value = '';
+    document.getElementById('field-sol-custom').style.display = 'none';
+    document.getElementById('f-sol-custom').value = '';
+    csoReset('area','Selecione'); document.getElementById('f-area').value = '';
+    document.getElementById('field-outra-area').style.display = 'none';
+    document.getElementById('f-area-custom').value = '';
+    csoReset('frente','Selecione'); document.getElementById('f-frente').value = '';
+    document.getElementById('field-outra-area').style.display = 'none';
+    document.getElementById('f-area-custom').value = '';
+    document.getElementById('btn-delete').style.display = 'none';
+    checkFormValid();
+    if (defaultStatus) {
+      const lane = LANES.find(l => l.key === defaultStatus);
+      if (lane) document.querySelector(`.status-opt[data-status="${defaultStatus}"]`)?.classList.add(lane.sel);
+    } else {
+      document.querySelector('.status-opt[data-status="Backlog"]')?.classList.add('sel-backlog');
+    }
+  }
+}
+
+function closeModal() {
+  document.getElementById('modal-overlay').classList.remove('show');
+  editingId = null;
+}
+
+function closeModalOutside(e) { if (e.target === document.getElementById('modal-overlay')) { document.getElementById('modal-overlay').classList.remove('show'); editingId = null; } }
+
+function selectPrio(btn) {
+  document.querySelectorAll('.prio-opt').forEach(b => b.className = 'prio-opt');
+  const p = btn.dataset.prio;
+  btn.classList.add('sel-p'+p);
+}
+
+function selectStatus(btn) {
+  document.querySelectorAll('.status-opt').forEach(b => b.className = 'status-opt');
+  const lane = LANES.find(l => l.key === btn.dataset.status);
+  if (lane) btn.classList.add(lane.sel);
+}
+
+function getSelectedPrio() {
+  const sel = document.querySelector('.prio-opt[class*="sel-p"]');
+  return sel ? sel.dataset.prio : '';
+}
+
+function getSelectedStatus() {
+  for (const lane of LANES) {
+    const sel = document.querySelector(`.status-opt[data-status="${lane.key}"][class*="${lane.sel}"]`);
+    if (sel) return lane.key;
+  }
+  return 'Backlog';
+}
+
+function saveCard() {
+  const titulo = document.getElementById('f-titulo').value.trim();
+  const desc = document.getElementById('f-desc').value.trim();
+  const solHidden = document.getElementById('f-sol').value.trim();
+  const solCustom = document.getElementById('f-sol-custom').value.trim();
+  const sol = solCustom || solHidden;
+  const areaVal = document.getElementById('f-area').value;
+  const areaCustom = document.getElementById('f-area-custom').value.trim();
+  const frente = document.getElementById('f-frente').value;
+
+  const errors = [];
+  if (!titulo) errors.push('Título');
+  if (!desc) errors.push('Descrição');
+  if (!sol) errors.push('Solicitante');
+  if (!areaVal) errors.push('Área');
+  if (areaVal === 'Outra' && !areaCustom) errors.push('Qual área (Outra)');
+  if (!frente) errors.push('Frente');
+
+  if (errors.length) {
+    alert('Preencha os campos obrigatórios:\n• ' + errors.join('\n• '));
+    return;
+  }
+  if (editingId) {
+    const d = data.find(x => x.id === editingId);
+    d.titulo = titulo;
+    d.desc = document.getElementById('f-desc').value.trim();
+    d.solicitante = (document.getElementById('f-sol').value === '__outro__' ? document.getElementById('f-sol-custom').value.trim() : document.getElementById('f-sol').value);
+    d.ticket = document.getElementById('f-ticket').value.trim();
+    d.prio = getSelectedPrio();
+    d.status = getSelectedStatus();
+    const areaVal = document.getElementById('f-area').value;
+    d.area = areaVal === 'Outra' ? (document.getElementById('f-area-custom').value.trim() || 'Outra') : areaVal;
+    d.frente = document.getElementById('f-frente').value;
+  } else {
+    const maxId = data.length ? Math.max(...data.map(d => d.id)) : 0;
+    data.push({ id: maxId+1, titulo, desc: document.getElementById('f-desc').value.trim(), solicitante: (document.getElementById('f-sol').value === '__outro__' ? document.getElementById('f-sol-custom').value.trim() : document.getElementById('f-sol').value), ticket: document.getElementById('f-ticket').value.trim(), area: (document.getElementById('f-area').value === 'Outra' ? (document.getElementById('f-area-custom').value.trim() || 'Outra') : document.getElementById('f-area').value), frente: document.getElementById('f-frente').value, prio: getSelectedPrio(), status: getSelectedStatus() });
+  }
+  save(); closeModal(); renderBoard();
+}
+
+function deleteCard() {
+  if (!confirm('Excluir esta demanda?')) return;
+  data = data.filter(d => d.id !== editingId);
+  save(); closeModal(); renderBoard();
+}
+
+function exportCSV() {
+  const header = ['ID','Título','Descrição','Solicitante','Ticket','Prioridade','Status'];
+  const rows = data.map(d => [d.id,d.titulo,d.desc,d.solicitante,d.ticket,d.prio,d.status].map(v=>`"${String(v||'').replace(/"/g,'""')}"`));
+  const csv = [header,...rows].map(r=>r.join(',')).join('\n');
+  const a = document.createElement('a'); a.href='data:text/csv;charset=utf-8,\uFEFF'+encodeURIComponent(csv); a.download='demandas.csv'; a.click();
+}
+
+document.getElementById('date-display') && (document.getElementById('date-display').textContent = '');
+renderBoard();
+</script>
+<!-- MODAL BLOQUEIO -->
+<div class="block-modal-overlay" id="block-modal-overlay">
+  <div class="block-modal">
+    <h3>🔴 Motivo do bloqueio</h3>
+    <p>Descreva o que está impedindo o andamento desta demanda.</p>
+    <textarea id="block-reason" placeholder="Ex: Aguardando definição do time jurídico..."></textarea>
+    <div class="block-modal-footer">
+      <button class="btn btn-outline" onclick="cancelBlock()">Cancelar</button>
+      <button class="btn" style="background:#ef4444;color:#fff" onclick="confirmBlock()">Confirmar bloqueio</button>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>
